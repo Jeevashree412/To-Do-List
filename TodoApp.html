@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive To-Do App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
+
+  body {
+    margin: 0; padding: 2rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    font-family: 'Quicksand', sans-serif;
+    color: #eee;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .app {
+    background: #1c1f3bdd;
+    border-radius: 14px;
+    max-width: 900px;
+    width: 100%;
+    display: flex;
+    gap: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .sidebar, .main {
+    background: #2a2e52ee;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 280px;
+  }
+  h2 {
+    margin: 0 0 1rem 0;
+    font-weight: 600;
+    text-align: center;
+    color: #b2b7ff;
+  }
+  input, button {
+    font-family: inherit;
+    font-size: 1rem;
+    border-radius: 10px;
+    outline: none;
+  }
+  input {
+    border: none;
+    padding: 0.7rem 1rem;
+    background: #3a3f69;
+    color: #eee;
+    box-shadow: inset 0 0 7px #121839;
+  }
+  button {
+    background: #6f85fa;
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    padding: 0 1.2rem;
+  }
+  button:hover:not(:disabled) {
+    background: #8e9bff;
+  }
+  button:disabled {
+    background: #6f85fa88;
+    cursor: default;
+  }
+  .new-list, .new-task {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+  }
+  ul.lists li {
+    background: #3b416e;
+    padding: 12px 14px;
+    margin-bottom: 0.8rem;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s;
+  }
+  ul.lists li.active, ul.lists li:hover {
+    background: #6470fc;
+    color: #f0f4ff;
+  }
+  .list-name {
+    flex: 1;
+  }
+  .list-delete {
+    background: transparent;
+    border: none;
+    color: #aab4ff;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: color 0.3s;
+  }
+  .list-delete:hover {
+    color: #fff;
+  }
+  ul.tasks li {
+    background: #3b416e;
+    padding: 12px 18px;
+    margin-bottom: 0.8rem;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s;
+  }
+  ul.tasks li.completed {
+    background: #5478d6;
+    color: #d1d8ff;
+    text-decoration: line-through;
+  }
+  ul.tasks li .task-title {
+    flex: 1;
+    margin-left: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: text;
+  }
+  ul.tasks li .task-actions {
+    display: flex;
+    gap: 8px;
+  }
+  ul.tasks li .task-actions button {
+    background: transparent;
+    border: none;
+    color: #aab4ff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.3s;
+  }
+  ul.tasks li .task-actions button:hover {
+    color: #e0e5ff;
+  }
+  ul.tasks li .task-time {
+    font-size: 0.85rem;
+    color: #bbbffd;
+    margin-left: 42px;
+    padding-left: 4px;
+  }
+  .checkbox {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+  }
+  .editable {
+    outline: 2px solid #6470fc;
+    border-radius: 6px;
+    background: #3f47a1;
+    color: #eef1ff;
+  }
+</style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="To-Do App">
+    <!-- Sidebar with lists -->
+    <aside class="sidebar" aria-label="Task Lists">
+      <h2>Lists</h2>
+      <div class="new-list" role="form">
+        <input type="text" placeholder="Add new list" aria-label="New list name" id="newListInput" />
+        <button id="addListBtn" aria-label="Add list">+</button>
+      </div>
+      <ul class="lists" id="lists" role="list"></ul>
+    </aside>
+
+    <!-- Main content for tasks -->
+    <main class="main" aria-label="Tasks of selected list">
+      <h2 id="currentListName">Select a list</h2>
+      <div class="new-task" role="form">
+        <input type="text" placeholder="New task title" aria-label="New task title" id="newTaskTitle" disabled />
+        <input type="datetime-local" id="newTaskTime" aria-label="Task due date and time" disabled />
+        <button id="addTaskBtn" aria-label="Add task" disabled>Add</button>
+      </div>
+      <ul class="tasks" id="tasks" role="list"></ul>
+    </main>
+  </div>
+
+<script>
+  let data = JSON.parse(localStorage.getItem('todoData')) || { lists: [] };
+  let currentListId = null;
+
+  const listsEl = document.getElementById('lists');
+  const tasksEl = document.getElementById('tasks');
+  const newListInput = document.getElementById('newListInput');
+  const addListBtn = document.getElementById('addListBtn');
+  const currentListName = document.getElementById('currentListName');
+  const newTaskTitle = document.getElementById('newTaskTitle');
+  const newTaskTime = document.getElementById('newTaskTime');
+  const addTaskBtn = document.getElementById('addTaskBtn');
+
+  function saveData() {
+    localStorage.setItem('todoData', JSON.stringify(data));
+  }
+
+  function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  function renderLists() {
+    listsEl.innerHTML = '';
+    data.lists.forEach(list => {
+      const li = document.createElement('li');
+      li.classList.toggle('active', list.id === currentListId);
+
+      const span = document.createElement('span');
+      span.textContent = list.name;
+      span.className = 'list-name';
+      span.setAttribute('role', 'button');
+      span.setAttribute('tabindex', '0');
+
+      span.addEventListener('click', () => {
+        currentListId = list.id;
+        renderLists();
+        renderTasks();
+        updateCurrentListUI();
+        enableTaskInput(true);
+      });
+      span.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          span.click();
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'list-delete';
+      delBtn.textContent = '🗑️';
+      delBtn.title = 'Delete this list';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`Delete list "${list.name}" and all its tasks?`)) {
+          data.lists = data.lists.filter(l => l.id !== list.id);
+          if (currentListId === list.id) {
+            currentListId = null;
+          }
+          saveData();
+          renderLists();
+          renderTasks();
+          updateCurrentListUI();
+          enableTaskInput(false);
+        }
+      });
+
+      li.appendChild(span);
+      li.appendChild(delBtn);
+      listsEl.appendChild(li);
+    });
+    if (!currentListId) {
+      enableTaskInput(false);
+      currentListName.textContent = 'Select a list';
+      tasksEl.innerHTML = '';
+    }
+  }
+
+  function updateCurrentListUI() {
+    const current = data.lists.find(l => l.id === currentListId);
+    currentListName.textContent = current ? current.name : 'Select a list';
+  }
+
+  function enableTaskInput(enable) {
+    newTaskTitle.disabled = !enable;
+    newTaskTime.disabled = !enable;
+    addTaskBtn.disabled = !enable;
+  }
+
+  function renderTasks() {
+    tasksEl.innerHTML = '';
+    const current = data.lists.find(l => l.id === currentListId);
+    if (!current) return;
+
+    current.tasks.forEach(task => {
+      const li = document.createElement('li');
+      li.classList.toggle('completed', task.completed);
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = task.completed;
+      checkbox.className = 'checkbox';
+      checkbox.addEventListener('change', () => {
+        task.completed = checkbox.checked;
+        saveData();
+        renderTasks();
+      });
+
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = task.title;
+      titleSpan.className = 'task-title';
+      titleSpan.contentEditable = false;
+      titleSpan.title = 'Double-click to edit';
+
+      titleSpan.addEventListener('dblclick', () => {
+        titleSpan.contentEditable = true;
+        titleSpan.classList.add('editable');
+        titleSpan.focus();
+        document.execCommand('selectAll', false, null);
+      });
+      titleSpan.addEventListener('blur', () => {
+        titleSpan.contentEditable = false;
+        titleSpan.classList.remove('editable');
+        if (titleSpan.textContent.trim()) {
+          task.title = titleSpan.textContent.trim();
+          saveData();
+          renderTasks();
+        } else {
+          alert('Task title cannot be empty.');
+          titleSpan.textContent = task.title;
+        }
+      });
+
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'task-actions';
+
+      const editDateBtn = document.createElement('button');
+      editDateBtn.textContent = '⏰';
+      editDateBtn.title = task.datetime ? `Due: ${new Date(task.datetime).toLocaleString()}` : 'Set date/time';
+      editDateBtn.addEventListener('click', () => {
+        const newDT = prompt('Set Date and Time (YYYY-MM-DDTHH:mm)', task.datetime || '');
+        if (newDT === null) return;
+        if (newDT.trim() === '') {
+          task.datetime = null;
+        } else if (isNaN(new Date(newDT))) {
+          alert('Invalid date/time format.');
+          return;
+        } else {
+          task.datetime = newDT;
+        }
+        saveData();
+        renderTasks();
+      });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.title = 'Delete task';
+      deleteBtn.addEventListener('click', () => {
+        if (confirm('Delete this task?')) {
+          current.tasks = current.tasks.filter(t => t.id !== task.id);
+          saveData();
+          renderTasks();
+        }
+      });
+
+      actionsDiv.appendChild(editDateBtn);
+      actionsDiv.appendChild(deleteBtn);
+
+      li.appendChild(checkbox);
+      li.appendChild(titleSpan);
+      li.appendChild(actionsDiv);
+
+      if (task.datetime) {
+        const timeDiv = document.createElement('div');
+        timeDiv.textContent = 'Due: ' + new Date(task.datetime).toLocaleString();
+        timeDiv.className = 'task-time';
+        li.appendChild(timeDiv);
+      }
+
+      tasksEl.appendChild(li);
+    });
+  }
+
+  addListBtn.addEventListener('click', () => {
+    const name = newListInput.value.trim();
+    if (!name) {
+      alert('Please enter a list name.');
+      return;
+    }
+    if (data.lists.some(l => l.name.toLowerCase() === name.toLowerCase())) {
+      alert('List already exists.');
+      return;
+    }
+    const newList = { id: generateId(), name, tasks: [] };
+    data.lists.push(newList);
+    currentListId = newList.id;
+    newListInput.value = '';
+    saveData();
+    renderLists();
+    renderTasks();
+    updateCurrentListUI();
+    enableTaskInput(true);
+  });
+
+  addTaskBtn.addEventListener('click', () => {
+    if (!currentListId) return;
+    const title = newTaskTitle.value.trim();
+    if (!title) {
+      alert('Please enter a task title.');
+      return;
+    }
+    const dateTimeVal = newTaskTime.value ? newTaskTime.value : null;
+    const newTask = { id: generateId(), title, completed: false, datetime: dateTimeVal };
+    const current = data.lists.find(l => l.id === currentListId);
+    if (!current) return;
+    current.tasks.push(newTask);
+    newTaskTitle.value = '';
+    newTaskTime.value = '';
+    saveData();
+    renderTasks();
+  });
+
+  renderLists();
+  enableTaskInput(false);
+</script>
+</body>
+</html>
